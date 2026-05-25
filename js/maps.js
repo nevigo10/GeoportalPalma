@@ -1,4 +1,4 @@
-/ Registrar la proyección UTM Zona 16N (Honduras) en Proj4
+// Registrar la proyección UTM Zona 16N (Honduras) en Proj4
 proj4.defs("EPSG:32616", "+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs");
 
 // Inicializar el mapa de Leaflet
