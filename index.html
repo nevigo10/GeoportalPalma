@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Geoportal BIOGEO CONSULTING</title>
+
+	<!-- Google Fonts: Inter -->
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+	<!-- Leaflet CSS -->
+	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+	<!-- Leaflet Routing Machine CSS -->
+	<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+	<!-- FontAwesome for Premium Icons -->
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+	<!-- Custom CSS -->
+	<link rel="stylesheet" type="text/css" href="css/estilos.css">
+
+	<!-- ApexCharts JS -->
+	<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+	<!-- Proj4 JS for Coordinate Transformations -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.8.0/proj4.js"></script>
+</head>
+
+<body>
+
+	<!-- Panel Lateral Izquierdo (Controles) -->
+	<div id="sidebar">
+		<div class="header">
+			<div class="header-logo-container">
+				<!-- Mostramos un ícono premium de planta si no encuentra logo.jpg.jpg -->
+				<i class="fa-solid fa-seedling sidebar-logo" style="font-size: 2.2rem; color: #8cb885;"
+					id="sidebar-fallback-logo"></i>
+				<div class="header-text">
+					<h1>BIOGEO CONSULTING</h1>
+				</div>
+			</div>
+			<p>Visualizador interactivo de datos geoespaciales y parcelas catastrales.</p>
+		</div>
+
+		<div class="layer-control">
+			<h3>Capas Base</h3>
+			<label class="layer-item">
+				<input type="radio" id="basemap-topo" name="basemap" checked>
+				<span class="layer-label">Mapa Base Topográfico</span>
+			</label>
+			<label class="layer-item">
+				<input type="radio" id="basemap-sat" name="basemap">
+				<span class="layer-label">Google Satelital</span>
+			</label>
+		</div>
+
+		<div class="layer-control">
+			<h3>Capas Temáticas</h3>
+			<label class="layer-item">
+				<input type="checkbox" id="layer-departamentos">
+				<span class="layer-label">Departamentos (WMS)</span>
+			</label>
+			<label class="layer-item">
+				<input type="checkbox" id="layer-municipios">
+				<span class="layer-label">Municipios (WMS)</span>
+			</label>
+			<label class="layer-item">
+				<input type="checkbox" id="layer-aldeas">
+				<span class="layer-label">Aldeas 2001 (WMS)</span>
+			</label>
+			<label class="layer-item">
+				<input type="checkbox" id="layer-parcelas" checked>
+				<span class="layer-label">Parcelas Palma (WFS)</span>
+			</label>
+		</div>
+
+		<!-- Widget de Coordenadas -->
+		<div class="coords-widget">
+			<div class="coords-title">
+				<i class="fa-solid fa-location-crosshairs"></i> Coordenadas
+			</div>
+			<div class="coords-value" id="coords-display">
+				Lat: --.-----<br>Lng: --.-----
+			</div>
+		</div>
+
+		<!-- Botón de centrado rápido -->
+		<button class="zoom-btn" onclick="zoomToParcelas()">
+			<i class="fa-solid fa-crosshairs"></i> Centrar en Parcelas
+		</button>
+
+		<button class="clear-route-btn" onclick="clearRoute()">Limpiar Ruta</button>
+	</div>
+
+	<!-- Panel Lateral Derecho (Estadísticas) -->
+	<div id="right-panel">
+		<button id="right-panel-toggle" onclick="toggleRightPanel()" title="Ver Estadísticas">
+			<i class="fa-solid fa-xmark" id="toggle-icon"></i>
+		</button>
+
+		<h2 class="stats-section-title">
+			<i class="fa-solid fa-chart-pie"></i> Superficies de Palma
+		</h2>
+		<div
+			style="font-size: 0.8rem; color: #aaaaaa; margin-top: -10px; margin-bottom: 5px; display: flex; align-items: center; gap: 6px;">
+			<i class="fa-solid fa-leaf" style="color: #5c913b;"></i> Cultivo: Palma Africana
+		</div>
+
+		<!-- Interruptor de Filtro Espacial -->
+		<div class="filter-switch-container">
+			<span class="switch-label">
+				<i class="fa-solid fa-map-location-dot"></i> Filtrar por área visible
+			</span>
+			<label class="switch">
+				<input type="checkbox" id="spatial-filter-switch" checked>
+				<span class="slider"></span>
+			</label>
+		</div>
+
+		<!-- Tarjeta de Parcela Seleccionada -->
+		<div id="selected-parcel-card" class="metric-card full-width"
+			style="display: none; border-color: #5c913b; background: rgba(92, 145, 59, 0.1); margin-bottom: 4px; text-align: left; flex-direction: column; align-items: flex-start; gap: 4px;">
+			<div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+				<span
+					style="font-size: 0.75rem; font-weight: 700; color: #b2d3a8; text-transform: uppercase; letter-spacing: 0.5px;">
+					<i class="fa-solid fa-location-dot" style="color: #5c913b;"></i> Parcela Seleccionada
+				</span>
+				<button onclick="clearSelectedParcelStats(); event.stopPropagation();"
+					style="background: none; border: none; color: #aaaaaa; cursor: pointer; font-size: 0.95rem; padding: 0 4px;">
+					<i class="fa-solid fa-xmark"></i>
+				</button>
+			</div>
+			<div
+				style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 8px;">
+				<div>
+					<div class="metric-label" style="text-align: left; font-size: 0.65rem;">ID / FLOID</div>
+					<div class="metric-value" id="selected-parcel-id"
+						style="font-size: 1rem; font-weight: 700; text-align: left;">-</div>
+				</div>
+				<div style="text-align: right;">
+					<div class="metric-label" style="text-align: right; font-size: 0.65rem;">Superficie</div>
+					<div class="metric-value" id="selected-parcel-sup"
+						style="font-size: 1.15rem; font-weight: 700; color: #8cb885; text-align: right;">0.00 ha</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Cuadrícula de Métricas -->
+		<div class="metrics-grid">
+			<div class="metric-card">
+				<i class="fa-solid fa-calculator metric-icon"></i>
+				<span class="metric-value" id="stat-count">0</span>
+				<span class="metric-label">Parcelas</span>
+			</div>
+			<div class="metric-card">
+				<i class="fa-solid fa-chart-area metric-icon"></i>
+				<span class="metric-value" id="stat-avg">0.00</span>
+				<span class="metric-label">Promedio (ha)</span>
+			</div>
+			<div class="metric-card full-width">
+				<i class="fa-solid fa-expand metric-icon"></i>
+				<span class="metric-value" id="stat-total">0.00 ha</span>
+				<span class="metric-label">Superficie Total</span>
+			</div>
+			<div class="metric-card">
+				<i class="fa-solid fa-arrow-down-wide-short metric-icon"></i>
+				<span class="metric-value" id="stat-min">0.00</span>
+				<span class="metric-label">Mínimo (ha)</span>
+			</div>
+			<div class="metric-card">
+				<i class="fa-solid fa-arrow-up-wide-short metric-icon"></i>
+				<span class="metric-value" id="stat-max">0.00</span>
+				<span class="metric-label">Máximo (ha)</span>
+			</div>
+		</div>
+
+		<!-- Contenedor del Gráfico -->
+		<div class="chart-card">
+			<h4><i class="fa-solid fa-chart-column"></i> Distribución de Superficie (ha)</h4>
+			<div id="superficie-chart"></div>
+		</div>
+
+		<!-- Contenedor de Ruta (Leaflet Routing Machine results) -->
+		<div id="routing-container-card" class="chart-card" style="display: none;">
+			<h4><i class="fa-solid fa-route"></i> Indicaciones de Ruta</h4>
+			<div id="routing-container"></div>
+		</div>
+	</div>
+
+	<!-- Contenedor del Mapa -->
+	<div id="map"></div>
+
+	<!-- Leaflet JS -->
+	<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+	<!-- Leaflet Routing Machine JS -->
+	<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+	<!-- Custom Map Logic Script -->
+	<script type="text/javascript" src="js/maps.js"></script>
+</body>
+
+</html>
